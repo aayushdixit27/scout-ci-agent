@@ -1,0 +1,35 @@
+services:
+  - type: web
+    name: scout-ci-agent
+    runtime: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn --worker-class gthread --workers 2 --threads 4 --timeout 120 flask_app:app
+    envVars:
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: TAVILY_API_KEY
+        sync: false
+      - key: YUTORI_API_KEY
+        sync: false
+      - key: MODULATE_API_KEY
+        sync: false
+      - key: NEO4J_URI
+        sync: false
+      - key: NEO4J_USERNAME
+        sync: false
+      - key: NEO4J_PASSWORD
+        sync: false
+      - key: NEO4J_DATABASE
+        sync: false
+      - key: SENSO_API_KEY
+        sync: false
+
+  - type: cron
+    name: scout-prebake-refresh
+    runtime: python
+    buildCommand: pip install -r requirements.txt
+    schedule: "0 2 * * *"   # runs nightly at 2AM — refreshes research before business day
+    startCommand: python3 prebake.py
+    envVars:
+      - key: YUTORI_API_KEY
+        sync: false

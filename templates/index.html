@@ -1,0 +1,700 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Scout — Competitive Intelligence</title>
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+  <script src="https://unpkg.com/vis-network/standalone/umd/vis-network.min.js"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:       #0d1117;
+      --surface:  #161b22;
+      --border:   #30363d;
+      --green:    #00ff88;
+      --green-dim:#00cc66;
+      --blue:     #58a6ff;
+      --yellow:   #f0b429;
+      --red:      #ff6b6b;
+      --text:     #e6edf3;
+      --muted:    #8b949e;
+    }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    /* ── HEADER ── */
+    header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 14px 24px;
+      border-bottom: 1px solid var(--border);
+      background: var(--surface);
+      flex-shrink: 0;
+    }
+    .logo {
+      font-size: 20px;
+      font-weight: 700;
+      letter-spacing: 0.1em;
+      color: var(--green);
+    }
+    .logo span { color: var(--text); font-weight: 300; }
+    #company-badge {
+      font-size: 15px;
+      font-weight: 600;
+      color: var(--blue);
+      opacity: 0;
+      transition: opacity 0.3s;
+    }
+    #emotion-badge {
+      font-size: 12px;
+      padding: 3px 10px;
+      border-radius: 20px;
+      background: #21262d;
+      border: 1px solid var(--border);
+      color: var(--muted);
+      transition: all 0.3s;
+    }
+    #emotion-badge.urgent  { border-color: var(--red);    color: var(--red); }
+    #emotion-badge.curious { border-color: var(--yellow); color: var(--yellow); }
+
+    /* ── MAIN LAYOUT ── */
+    .main {
+      display: flex;
+      flex: 1;
+      overflow: hidden;
+    }
+
+    /* ── LEFT PANEL: PIPELINE ── */
+    .pipeline {
+      width: 260px;
+      flex-shrink: 0;
+      border-right: 1px solid var(--border);
+      padding: 20px 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      overflow-y: auto;
+    }
+    .pipeline-title {
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.08em;
+      color: var(--muted);
+      text-transform: uppercase;
+      margin-bottom: 4px;
+    }
+    .tool-card {
+      background: #21262d;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 12px 14px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      transition: all 0.3s;
+    }
+    .tool-card .icon {
+      width: 28px;
+      height: 28px;
+      border-radius: 6px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 14px;
+      background: #30363d;
+      flex-shrink: 0;
+      transition: all 0.3s;
+    }
+    .tool-card .info { flex: 1; min-width: 0; }
+    .tool-card .tool-name {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text);
+    }
+    .tool-card .tool-sub {
+      font-size: 11px;
+      color: var(--muted);
+      margin-top: 2px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .tool-card .status-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #30363d;
+      flex-shrink: 0;
+      transition: all 0.3s;
+    }
+
+    /* active state */
+    .tool-card.active {
+      border-color: var(--green);
+      background: rgba(0, 255, 136, 0.05);
+    }
+    .tool-card.active .icon { background: rgba(0,255,136,0.15); }
+    .tool-card.active .status-dot {
+      background: var(--green);
+      box-shadow: 0 0 6px var(--green);
+      animation: pulse 1s infinite;
+    }
+
+    /* done state */
+    .tool-card.done {
+      border-color: var(--green-dim);
+      opacity: 0.85;
+    }
+    .tool-card.done .icon { background: rgba(0,255,136,0.08); }
+    .tool-card.done .status-dot { background: var(--green-dim); }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50%       { opacity: 0.4; }
+    }
+
+    /* sponsor strip */
+    .sponsors {
+      margin-top: auto;
+      padding-top: 16px;
+      border-top: 1px solid var(--border);
+    }
+    .sponsors-label {
+      font-size: 10px;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      margin-bottom: 8px;
+    }
+    .sponsor-pills {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+    .pill {
+      font-size: 10px;
+      padding: 2px 8px;
+      border-radius: 12px;
+      border: 1px solid var(--border);
+      color: var(--muted);
+    }
+
+    /* ── RIGHT PANEL: BATTLECARD ── */
+    .battlecard-panel {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+    .battlecard-header {
+      padding: 16px 24px 12px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-shrink: 0;
+    }
+    .battlecard-header h2 {
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--muted);
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+    }
+    #status-line {
+      font-size: 12px;
+      color: var(--muted);
+    }
+    #status-line.running { color: var(--green); }
+
+    #battlecard-output {
+      flex: 1;
+      overflow-y: auto;
+      padding: 24px 32px;
+    }
+
+    /* waiting state */
+    .waiting-state {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 100%;
+      gap: 12px;
+      color: var(--muted);
+    }
+    .waiting-state .big-icon { font-size: 48px; opacity: 0.3; }
+    .waiting-state p { font-size: 14px; }
+
+    /* markdown styles */
+    #battlecard-output h2 {
+      font-size: 20px;
+      font-weight: 700;
+      color: var(--green);
+      margin-bottom: 12px;
+      padding-bottom: 8px;
+      border-bottom: 1px solid var(--border);
+    }
+    #battlecard-output h3 {
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--blue);
+      margin: 20px 0 8px;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+    }
+    #battlecard-output p  { font-size: 14px; line-height: 1.6; color: var(--text); margin-bottom: 8px; }
+    #battlecard-output ul, #battlecard-output ol { padding-left: 20px; margin-bottom: 10px; }
+    #battlecard-output li { font-size: 14px; line-height: 1.7; color: var(--text); }
+    #battlecard-output strong { color: var(--green); }
+    #battlecard-output hr { border-color: var(--border); margin: 16px 0; }
+    #battlecard-output a  { color: var(--blue); text-decoration: none; font-size: 12px; }
+    #battlecard-output a:hover { text-decoration: underline; }
+
+    /* cursor blink while streaming */
+    .cursor::after {
+      content: "▋";
+      animation: blink 0.8s infinite;
+      color: var(--green);
+    }
+    @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0} }
+
+    /* ── FOOTER / INPUT ── */
+    footer {
+      border-top: 1px solid var(--border);
+      padding: 14px 24px;
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      background: var(--surface);
+      flex-shrink: 0;
+    }
+    #company-input {
+      flex: 1;
+      background: #21262d;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 10px 14px;
+      color: var(--text);
+      font-size: 14px;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+    #company-input:focus { border-color: var(--green); }
+    #company-input::placeholder { color: var(--muted); }
+
+    .btn {
+      padding: 10px 20px;
+      border-radius: 8px;
+      border: none;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .btn-primary {
+      background: var(--green);
+      color: #0d1117;
+    }
+    .btn-primary:hover  { background: var(--green-dim); }
+    .btn-primary:disabled { opacity: 0.4; cursor: not-allowed; }
+
+    .btn-voice {
+      background: #21262d;
+      border: 1px solid var(--border);
+      color: var(--text);
+      padding: 10px 14px;
+    }
+    .btn-voice:hover   { border-color: var(--green); color: var(--green); }
+    .btn-voice.listening { border-color: var(--red); color: var(--red); animation: pulse 1s infinite; }
+
+    /* ── LOGO ── */
+    #company-logo {
+      width: 24px; height: 24px;
+      border-radius: 4px;
+      object-fit: contain;
+      display: none;
+      background: #fff;
+    }
+
+    /* ── GRAPH PANEL ── */
+    .graph-section {
+      border-top: 1px solid var(--border);
+      flex-shrink: 0;
+      display: none;
+    }
+    .graph-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 8px 24px;
+      cursor: pointer;
+      user-select: none;
+    }
+    .graph-header span {
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--muted);
+    }
+    .graph-header .toggle { color: var(--muted); font-size: 12px; }
+    #graph-container {
+      height: 220px;
+      background: #0d1117;
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <div class="logo">SCOUT <span>/ CI Agent</span></div>
+  <div style="display:flex;align-items:center;gap:10px;">
+    <img id="company-logo" src="" alt="" onerror="this.style.display='none'" />
+    <div id="company-badge"></div>
+  </div>
+  <div id="emotion-badge">neutral</div>
+</header>
+
+<div class="main">
+
+  <!-- LEFT: Pipeline -->
+  <aside class="pipeline">
+    <div class="pipeline-title">Pipeline</div>
+
+    <div class="tool-card" id="card-research_company">
+      <div class="icon">🔬</div>
+      <div class="info">
+        <div class="tool-name">research_company</div>
+        <div class="tool-sub" id="sub-research_company">Yutori deep intel</div>
+      </div>
+      <div class="status-dot"></div>
+    </div>
+
+    <div class="tool-card" id="card-search_news">
+      <div class="icon">📰</div>
+      <div class="info">
+        <div class="tool-name">search_news</div>
+        <div class="tool-sub" id="sub-search_news">Tavily live news</div>
+      </div>
+      <div class="status-dot"></div>
+    </div>
+
+    <div class="tool-card" id="card-save_to_graph">
+      <div class="icon">🕸️</div>
+      <div class="info">
+        <div class="tool-name">save_to_graph</div>
+        <div class="tool-sub" id="sub-save_to_graph">Neo4j knowledge graph</div>
+      </div>
+      <div class="status-dot"></div>
+    </div>
+
+    <div class="tool-card" id="card-store_in_senso">
+      <div class="icon">🧠</div>
+      <div class="info">
+        <div class="tool-name">store_in_senso</div>
+        <div class="tool-sub" id="sub-store_in_senso">Senso skill memory</div>
+      </div>
+      <div class="status-dot"></div>
+    </div>
+
+    <div class="sponsors">
+      <div class="sponsors-label">Powered by</div>
+      <div class="sponsor-pills">
+        <span class="pill">Yutori</span>
+        <span class="pill">Tavily</span>
+        <span class="pill">Neo4j</span>
+        <span class="pill">Modulate</span>
+        <span class="pill">Senso</span>
+        <span class="pill">OpenAI</span>
+      </div>
+    </div>
+  </aside>
+
+  <!-- RIGHT: Battlecard -->
+  <section class="battlecard-panel">
+    <div class="battlecard-header">
+      <h2>Battlecard</h2>
+      <span id="status-line">Enter a company to begin</span>
+    </div>
+    <div id="battlecard-output">
+      <div class="waiting-state" id="waiting">
+        <div class="big-icon">⚡</div>
+        <p>Ready. Enter a company name below.</p>
+      </div>
+    </div>
+
+    <!-- Knowledge Graph Panel -->
+    <div class="graph-section" id="graph-section">
+      <div class="graph-header" onclick="toggleGraph()">
+        <span>🕸 Knowledge Graph</span>
+        <span class="toggle" id="graph-toggle">▲ collapse</span>
+      </div>
+      <div id="graph-container"></div>
+    </div>
+  </section>
+
+</div>
+
+<footer>
+  <input id="company-input" type="text" placeholder="Company name (e.g. Salesforce, HubSpot, Notion)" />
+  <button class="btn btn-primary" id="run-btn" onclick="startRun()">▶ Run Scout</button>
+  <button class="btn btn-voice" id="voice-btn" onclick="toggleVoice()" title="Voice input">🎤</button>
+</footer>
+
+<script>
+  let evtSource = null;
+  let rawText   = "";
+  let isStreaming = false;
+
+  // ── Voice Input (Web Speech API) ──────────────────────────────────────────
+  const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+  let recognition = null;
+
+  function toggleVoice() {
+    if (!SpeechRecognition) {
+      alert("Voice input not supported in this browser. Use Chrome or Safari.");
+      return;
+    }
+    const btn = document.getElementById("voice-btn");
+    if (recognition) {
+      recognition.stop();
+      recognition = null;
+      btn.classList.remove("listening");
+      btn.textContent = "🎤";
+      return;
+    }
+    recognition = new SpeechRecognition();
+    recognition.lang = "en-US";
+    recognition.interimResults = false;
+    recognition.onresult = (e) => {
+      const transcript = e.results[0][0].transcript;
+      document.getElementById("company-input").value = transcript;
+      recognition = null;
+      btn.classList.remove("listening");
+      btn.textContent = "🎤";
+      startRun();
+    };
+    recognition.onerror = () => {
+      recognition = null;
+      btn.classList.remove("listening");
+      btn.textContent = "🎤";
+    };
+    recognition.start();
+    btn.classList.add("listening");
+    btn.textContent = "⏹ Stop";
+  }
+
+  // ── Run Scout ─────────────────────────────────────────────────────────────
+  function startRun() {
+    const company = document.getElementById("company-input").value.trim();
+    if (!company) return;
+
+    resetUI(company);
+
+    fetch("/run", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ company })
+    })
+    .then(r => r.json())
+    .then(({ session_id }) => {
+      if (!session_id) return;
+      listenToStream(session_id);
+    });
+  }
+
+  // allow Enter key
+  document.getElementById("company-input").addEventListener("keydown", e => {
+    if (e.key === "Enter") startRun();
+  });
+
+  // ── SSE Stream ────────────────────────────────────────────────────────────
+  function listenToStream(sessionId) {
+    if (evtSource) evtSource.close();
+    evtSource = new EventSource(`/stream/${sessionId}`);
+    evtSource.onmessage = (e) => handleEvent(JSON.parse(e.data));
+    evtSource.onerror   = () => { evtSource.close(); setStatus("Stream closed", false); };
+  }
+
+  function handleEvent(ev) {
+    switch (ev.type) {
+
+      case "status":
+        setStatus("Researching...", true);
+        break;
+
+      case "tool_start":
+        setToolActive(ev.name);
+        setStatus(`Running ${ev.name}...`, true);
+        break;
+
+      case "tool_done":
+        setToolDone(ev.name, ev.result);
+        if (ev.name === "research_company" && ev.company) {
+          const badge = document.getElementById("company-badge");
+          badge.textContent = "BATTLECARD for " + ev.company.toUpperCase();
+          badge.style.opacity = "1";
+          // Company logo via Clearbit
+          const logo = document.getElementById("company-logo");
+          const domain = ev.company.toLowerCase().replace(/\s+/g, "") + ".com";
+          logo.src = `https://logo.clearbit.com/${domain}`;
+          logo.style.display = "inline-block";
+        }
+        break;
+
+      case "text_chunk":
+        if (!isStreaming) {
+          isStreaming = true;
+          setStatus("Generating battlecard...", true);
+          document.getElementById("battlecard-output").innerHTML =
+            '<div id="md-render" class="cursor"></div>';
+        }
+        rawText += ev.text;
+        document.getElementById("md-render").innerHTML = marked.parse(rawText);
+        document.getElementById("battlecard-output").scrollTop = 99999;
+        break;
+
+      case "brief_done":
+        isStreaming = false;
+        const el = document.getElementById("md-render");
+        if (el) el.classList.remove("cursor");
+        setStatus("Complete ✓", false);
+        document.getElementById("run-btn").disabled = false;
+        // Load knowledge graph
+        loadGraph();
+        // Speak brief via browser TTS
+        if (ev.brief && window.speechSynthesis) {
+          const snippet = ev.brief.replace(/[#*\-]/g, "").substring(0, 500);
+          const utt = new SpeechSynthesisUtterance(snippet);
+          utt.rate = 1.05;
+          window.speechSynthesis.cancel(); // stop any previous
+          window.speechSynthesis.speak(utt);
+        }
+        break;
+
+      case "done":
+        evtSource.close();
+        document.getElementById("run-btn").disabled = false;
+        break;
+
+      case "error":
+        setStatus(`Error: ${ev.message}`, false);
+        document.getElementById("run-btn").disabled = false;
+        break;
+    }
+  }
+
+  // ── UI Helpers ────────────────────────────────────────────────────────────
+  function resetUI(company) {
+    rawText     = "";
+    isStreaming = false;
+
+    document.getElementById("run-btn").disabled = true;
+    document.getElementById("waiting").style.display = "none";
+    document.getElementById("battlecard-output").innerHTML =
+      '<div id="md-render" class="cursor"></div>';
+    document.getElementById("status-line").className = "running";
+
+    const badge = document.getElementById("company-badge");
+    badge.textContent = "Researching...";
+    badge.style.opacity = "1";
+
+    // reset all tool cards
+    ["research_company","search_news","save_to_graph","store_in_senso"].forEach(name => {
+      const card = document.getElementById(`card-${name}`);
+      card.classList.remove("active","done");
+      document.getElementById(`sub-${name}`).textContent = defaultSubs[name];
+    });
+  }
+
+  const defaultSubs = {
+    research_company: "Yutori deep intel",
+    search_news:      "Tavily live news",
+    save_to_graph:    "Neo4j knowledge graph",
+    store_in_senso:   "Senso skill memory"
+  };
+
+  function setToolActive(name) {
+    const card = document.getElementById(`card-${name}`);
+    if (card) card.classList.add("active");
+  }
+
+  function setToolDone(name, result) {
+    const card = document.getElementById(`card-${name}`);
+    if (card) {
+      card.classList.remove("active");
+      card.classList.add("done");
+    }
+    const sub = document.getElementById(`sub-${name}`);
+    if (sub && result) sub.textContent = "✓ " + result.substring(0, 40);
+  }
+
+  function setStatus(msg, running) {
+    const el = document.getElementById("status-line");
+    el.textContent  = msg;
+    el.className    = running ? "running" : "";
+  }
+
+  // ── Knowledge Graph ───────────────────────────────────────────────────────
+  let graphNetwork = null;
+  let graphCollapsed = false;
+
+  function loadGraph() {
+    fetch("/api/graph")
+      .then(r => r.json())
+      .then(data => {
+        if (!data.nodes || data.nodes.length === 0) return;
+        document.getElementById("graph-section").style.display = "block";
+        renderGraph(data);
+      })
+      .catch(() => {});
+  }
+
+  function renderGraph(data) {
+    const colorMap = { Company: "#00ff88", Person: "#58a6ff", Event: "#f0b429" };
+    const nodes = new vis.DataSet(data.nodes.map(n => ({
+      id: n.id,
+      label: n.label,
+      color: { background: colorMap[n.group] || "#8b949e", border: "#0d1117", highlight: { background: colorMap[n.group] || "#8b949e" } },
+      font: { color: "#0d1117", size: 11, face: "monospace" },
+      shape: n.group === "Person" ? "ellipse" : n.group === "Event" ? "diamond" : "box",
+      size: n.group === "Company" ? 20 : 14
+    })));
+    const edges = new vis.DataSet(data.edges.map((e, i) => ({
+      id: i, from: e.from, to: e.to, label: e.label,
+      color: { color: "#30363d", highlight: "#00ff88" },
+      font: { color: "#8b949e", size: 9 },
+      arrows: "to", smooth: { type: "curvedCW", roundness: 0.2 }
+    })));
+    const container = document.getElementById("graph-container");
+    const options = {
+      physics: { stabilization: { iterations: 100 }, barnesHut: { gravitationalConstant: -3000 } },
+      interaction: { hover: true, tooltipDelay: 100 },
+      layout: { improvedLayout: true }
+    };
+    if (graphNetwork) graphNetwork.destroy();
+    graphNetwork = new vis.Network(container, { nodes, edges }, options);
+  }
+
+  function toggleGraph() {
+    const container = document.getElementById("graph-container");
+    const toggle    = document.getElementById("graph-toggle");
+    graphCollapsed  = !graphCollapsed;
+    container.style.display = graphCollapsed ? "none" : "block";
+    toggle.textContent = graphCollapsed ? "▼ expand" : "▲ collapse";
+  }
+</script>
+</body>
+</html>
