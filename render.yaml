@@ -1,7 +1,7 @@
 services:
   - type: web
     name: scout-ci-agent
-    runtime: python3
+    runtime: python
     buildCommand: pip install -r requirements.txt
     startCommand: gunicorn --worker-class gthread --workers 2 --threads 4 --timeout 120 flask_app:app
     envVars:
@@ -26,7 +26,7 @@ services:
 
   - type: cron
     name: scout-prebake-refresh
-    runtime: python3
+    runtime: python
     buildCommand: pip install -r requirements.txt
     schedule: "0 2 * * *"
     startCommand: python3 prebake.py
