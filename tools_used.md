@@ -12,7 +12,7 @@
 | Yutori | **$1,000** 1st | Research API used | ✅ |
 | Tavily | Credits | Search API used, judges present | ✅ |
 | Neo4j | Bose + credits | Visual graph on screen | ✅ |
-| Render | Credits | Web service + cron job (2 services) | ⚠️ partial |
+| Render | Credits | Web service + cron job (2 services) | ✅ |
 
 ---
 
@@ -75,14 +75,9 @@
 
 ### ⚠️ Render — Web Service (partial)
 - **What we have:** `flask_app.py` is a production-ready web service. `render.yaml` and `requirements.txt` created. `gunicorn` with `gthread` workers + 120s timeout for SSE.
-- **What's missing:** Cron job (2nd service required for full prize qualification). Render requires 2 services deployed.
-- **Deploy steps:**
-  1. Push `agent-prep/` to GitHub repo
-  2. render.com → New Web Service → connect repo
-  3. Render auto-detects `render.yaml`
-  4. Add env vars from `.env` in Render dashboard
-  5. Deploy → public URL
-- **Cron idea:** Add a `render.yaml` cron service that runs `prebake.py` nightly — qualifies as 2nd service
+- **Deployed:** https://github.com/aayushdixit27/scout-ci-agent
+- **Web service:** `scout-ci-agent` — Flask app with SSE streaming, live on Render
+- **Cron job:** `scout-prebake-refresh` — runs `prebake.py` nightly at 2AM, refreshes research
 - **Judge line:** *"In production this runs on Render — web service handles the live UI, cron job pre-researches companies from the calendar the night before"*
 
 ---

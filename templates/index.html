@@ -543,6 +543,7 @@
       case "tool_done":
         setToolDone(ev.name, ev.result);
         if (ev.name === "research_company" && ev.company) {
+          currentCompany = ev.company;
           const badge = document.getElementById("company-badge");
           badge.textContent = "BATTLECARD for " + ev.company.toUpperCase();
           badge.style.opacity = "1";
@@ -650,9 +651,11 @@
   // ── Knowledge Graph ───────────────────────────────────────────────────────
   let graphNetwork = null;
   let graphCollapsed = false;
+  let currentCompany = "";
 
   function loadGraph() {
-    fetch("/api/graph")
+    const url = currentCompany ? `/api/graph?company=${encodeURIComponent(currentCompany)}` : "/api/graph";
+    fetch(url)
       .then(r => r.json())
       .then(data => {
         if (!data.nodes || data.nodes.length === 0) return;
@@ -664,26 +667,50 @@
 
   function renderGraph(data) {
     const colorMap = { Company: "#00ff88", Person: "#58a6ff", Event: "#f0b429" };
+    const sizeMap  = { Company: 22, Person: 16, Event: 13 };
+    const shapeMap = { Company: "box", Person: "ellipse", Event: "diamond" };
+
     const nodes = new vis.DataSet(data.nodes.map(n => ({
-      id: n.id,
-      label: n.label,
-      color: { background: colorMap[n.group] || "#8b949e", border: "#0d1117", highlight: { background: colorMap[n.group] || "#8b949e" } },
-      font: { color: "#0d1117", size: 11, face: "monospace" },
-      shape: n.group === "Person" ? "ellipse" : n.group === "Event" ? "diamond" : "box",
-      size: n.group === "Company" ? 20 : 14
+      id:    n.id,
+      label: n.label.length > 18 ? n.label.substring(0, 16) + "…" : n.label,
+      title: n.label,   // full name on hover tooltip
+      color: {
+        background: colorMap[n.group] || "#8b949e",
+        border: "#0d1117",
+        highlight: { background: colorMap[n.group] || "#8b949e", border: "#fff" }
+      },
+      font:  { color: "#0d1117", size: 11, face: "ui-monospace, monospace", bold: n.group === "Company" },
+      shape: shapeMap[n.group] || "ellipse",
+      size:  sizeMap[n.group]  || 14
     })));
+
     const edges = new vis.DataSet(data.edges.map((e, i) => ({
-      id: i, from: e.from, to: e.to, label: e.label,
-      color: { color: "#30363d", highlight: "#00ff88" },
-      font: { color: "#8b949e", size: 9 },
-      arrows: "to", smooth: { type: "curvedCW", roundness: 0.2 }
+      id:    i,
+      from:  e.from,
+      to:    e.to,
+      title: e.type,    // show relationship type on hover only — no permanent label
+      color: { color: "#30363d", highlight: "#00ff88", opacity: 0.8 },
+      arrows: { to: { enabled: true, scaleFactor: 0.6 } },
+      smooth: { type: "continuous" },
+      width: 1.5
     })));
+
     const container = document.getElementById("graph-container");
     const options = {
-      physics: { stabilization: { iterations: 100 }, barnesHut: { gravitationalConstant: -3000 } },
-      interaction: { hover: true, tooltipDelay: 100 },
+      physics: {
+        stabilization: { iterations: 150, fit: true },
+        barnesHut: {
+          gravitationalConstant: -8000,
+          centralGravity: 0.3,
+          springLength: 120,
+          springConstant: 0.04,
+          damping: 0.09
+        }
+      },
+      interaction: { hover: true, tooltipDelay: 150, navigationButtons: false },
       layout: { improvedLayout: true }
     };
+
     if (graphNetwork) graphNetwork.destroy();
     graphNetwork = new vis.Network(container, { nodes, edges }, options);
   }

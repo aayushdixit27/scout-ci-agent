@@ -45,9 +45,25 @@ def health():
 @app.route("/api/graph")
 def api_graph():
     from scout import neo4j_driver, NEO4J_DB
+    company = request.args.get("company", "")
     try:
         with neo4j_driver.session(database=NEO4J_DB) as session:
-            result = session.run("MATCH (n)-[r]->(m) RETURN n, r, m LIMIT 100")
+            if company:
+                # Only show the subgraph for the searched company
+                result = session.run("""
+                    MATCH (c:Company {name: $name})-[r]->(m)
+                    RETURN c AS n, r, m
+                    UNION
+                    MATCH (c:Company {name: $name})-[:COMPETES_WITH]->(rival)
+                    RETURN c AS n, null AS r, rival AS m
+                """, name=company)
+                # Simpler: just get everything connected to this company in 1 hop
+                result = session.run("""
+                    MATCH (c:Company {name: $name})-[r]->(m)
+                    RETURN c AS n, r, m
+                """, name=company)
+            else:
+                result = session.run("MATCH (n)-[r]->(m) RETURN n, r, m LIMIT 60")
             nodes, edges = {}, []
             for record in result:
                 n, m, r = record["n"], record["m"], record["r"]
@@ -58,7 +74,7 @@ def api_graph():
                 if mid not in nodes:
                     nodes[mid] = {"id": mid, "label": m.get("name") or m.get("title") or "?",
                                   "group": list(m.labels)[0] if m.labels else "Node"}
-                edges.append({"from": nid, "to": mid, "label": r.type})
+                edges.append({"from": nid, "to": mid, "type": r.type})
         return {"nodes": list(nodes.values()), "edges": edges}
     except Exception as e:
         return {"error": str(e), "nodes": [], "edges": []}
