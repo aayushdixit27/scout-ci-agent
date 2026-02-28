@@ -123,7 +123,7 @@ def stream(session_id):
         try:
             while True:
                 try:
-                    msg = q.get(timeout=60)
+                    msg = q.get(timeout=15)
                 except Empty:
                     yield "data: {\"type\":\"heartbeat\"}\n\n"
                     continue
@@ -139,7 +139,8 @@ def stream(session_id):
         mimetype="text/event-stream",
         headers={
             "Cache-Control": "no-cache",
-            "X-Accel-Buffering": "no"
+            "X-Accel-Buffering": "no",
+            "Connection": "keep-alive"
         }
     )
 

@@ -3,7 +3,7 @@ services:
     name: scout-ci-agent
     runtime: python
     buildCommand: pip install -r requirements.txt
-    startCommand: gunicorn --worker-class gthread --workers 2 --threads 4 --timeout 120 flask_app:app
+    startCommand: gunicorn --worker-class gthread --workers 2 --threads 4 --timeout 300 --keep-alive 5 flask_app:app
     envVars:
       - key: OPENAI_API_KEY
         sync: false

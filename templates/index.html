@@ -525,7 +525,11 @@
     if (evtSource) evtSource.close();
     evtSource = new EventSource(`/stream/${sessionId}`);
     evtSource.onmessage = (e) => handleEvent(JSON.parse(e.data));
-    evtSource.onerror   = () => { evtSource.close(); setStatus("Stream closed", false); };
+    evtSource.onerror   = () => {
+      evtSource.close();
+      if (!rawText) setStatus("Connection error — check server logs", false);
+      document.getElementById("run-btn").disabled = false;
+    };
   }
 
   function handleEvent(ev) {
@@ -547,10 +551,9 @@
           const badge = document.getElementById("company-badge");
           badge.textContent = "BATTLECARD for " + ev.company.toUpperCase();
           badge.style.opacity = "1";
-          // Company logo via Clearbit
+          // Company letter avatar
           const logo = document.getElementById("company-logo");
-          const domain = ev.company.toLowerCase().replace(/\s+/g, "") + ".com";
-          logo.src = `https://logo.clearbit.com/${domain}`;
+          logo.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(ev.company)}&background=00ff88&color=0d1117&size=48&bold=true&length=1`;
           logo.style.display = "inline-block";
         }
         break;
